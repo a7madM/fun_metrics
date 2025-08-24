@@ -14,7 +14,12 @@ module FunMetrics
         wrap_list = inst.instance_methods(false)
         wrap_list &= only if only
         wrap_list -= exclude.map(&:to_sym)
-        wrap_list.each { |m| FunMetrics::Instrumentation.wrap_instance_method(inst, m) }
+
+        wrap_list.each do |m|
+          FunMetrics::Instrumentation.wrap_instance_method(inst, m)
+        rescue StandardError
+          # Handle error (e.g., log it)
+        end
 
         singleton_class.class_eval do
           define_method(:method_added) do |meth|
@@ -25,8 +30,13 @@ module FunMetrics
             next if inst.instance_variable_get(:@_fun_metrics__instrumented)&.[](meth)
 
             @_adding_fun_metrics = true
-            FunMetrics::Instrumentation.wrap_instance_method(inst, meth)
-            @_adding_fun_metrics = false
+            begin
+              FunMetrics::Instrumentation.wrap_instance_method(inst, meth)
+            rescue StandardError
+              # Handle error (e.g., log it)
+            ensure
+              @_adding_fun_metrics = false
+            end
             super(meth)
           end
         end
