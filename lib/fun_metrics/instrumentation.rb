@@ -46,24 +46,20 @@ module FunMetrics
       return if klass.instance_methods(false).include?(orig.to_sym)
 
       counter = FunMetrics.counter(
-        :"#{klass.name.gsub('::', '_').downcase}_#{meth}_calls",
-        docstring: "Number of calls to #{klass}##{meth}",
-        labels: []
+        labels: { class: klass.name, method: meth }
       )
-      histogram = FunMetrics.histogram(
-        :"#{klass.name.gsub('::', '_').downcase}_#{meth}_duration_seconds",
-        docstring: "Execution time of #{klass}##{meth}",
-        labels: []
-      )
+
+      histogram = FunMetrics.histogram(labels: { class: klass.name, method: meth })
 
       klass.class_eval do
         alias_method orig, meth
         define_method(meth) do |*a, &blk|
-          counter.increment
+          labels = { class: klass.name, method: meth }
+          counter.increment(labels:)
           start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
           result = send(orig, *a, &blk)
           duration = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
-          histogram.observe(duration)
+          histogram.observe(duration, labels:)
           result
         end
       end

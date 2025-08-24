@@ -7,33 +7,36 @@ Dir[File.join(__dir__, 'fun_metrics', '*.rb')].sort.each { |f| require f }
 
 module FunMetrics
   class << self
-    attr_accessor :registry, :metrics
+    attr_accessor :registry, :duration_metric, :calls_metric
 
     def configure
       self.registry ||= Prometheus::Client.registry
-      self.metrics ||= {}
 
+      # Histogram for durations
+      self.duration_metric = Prometheus::Client::Histogram.new(
+        :ruby_method_duration_seconds,
+        docstring: 'Execution time of Ruby methods',
+        labels: %i[class method]
+      )
+      registry.register(duration_metric)
+
+      # Counter for calls
+      self.calls_metric = Prometheus::Client::Counter.new(
+        :ruby_method_calls_total,
+        docstring: 'Total number of method calls',
+        labels: %i[class method]
+      )
       yield self if block_given?
+
+      registry.register(calls_metric)
     end
 
-    def counter(name, docstring:, labels: [])
-      metrics[name] ||= Prometheus::Client::Counter.new(name, docstring:, labels:)
-      begin
-        registry.register(metrics[name])
-      rescue StandardError
-        nil
-      end
-      metrics[name]
+    def counter(labels: {})
+      calls_metric
     end
 
-    def histogram(name, docstring:, labels: [])
-      metrics[name] ||= Prometheus::Client::Histogram.new(name, docstring:, labels:)
-      begin
-        registry.register(metrics[name])
-      rescue StandardError
-        nil
-      end
-      metrics[name]
+    def histogram(labels: {})
+      duration_metric
     end
   end
 end
