@@ -1,27 +1,14 @@
 # frozen_string_literal: true
 
+require 'support/fake'
 RSpec.describe FunMetrics do
   it 'has a version number' do
     expect(FunMetrics::VERSION).not_to be nil
   end
 
-  class TestClass
-    include FunMetrics::Instrumentation
-    metrics_all!
-
-    def foo
-      sleep 0.01
-      'foo'
-    end
-
-    def bar(x)
-      x * 2
-    end
-  end
-
   describe 'Instrumentation' do
     it 'increments call counters' do
-      obj = TestClass.new
+      obj = Fake.new
       3.times { obj.foo }
       2.times { obj.bar(5) }
 
@@ -36,7 +23,7 @@ RSpec.describe FunMetrics do
     end
 
     it 'records execution durations' do
-      obj = TestClass.new
+      obj = Fake.new
       obj.foo
 
       duration_metric = FunMetrics.duration_metric
@@ -47,8 +34,8 @@ RSpec.describe FunMetrics do
     end
 
     it 'works with multiple instances' do
-      a = TestClass.new
-      b = TestClass.new
+      a = Fake.new
+      b = Fake.new
 
       expect { a.foo }.to change { FunMetrics.calls_metric.get(labels: { class: a.class.name, method: :foo }) }.by(1)
       expect { b.foo }.to change { FunMetrics.calls_metric.get(labels: { class: b.class.name, method: :foo }) }.by(1)
